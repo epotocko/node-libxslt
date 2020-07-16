@@ -1,7 +1,8 @@
 var fs = require('fs');
 var async = require('async');
-var libxmljs = require("libxmljs");
+
 var libxslt = require('./index');
+var libxmljs = libxslt.libxmljs;
 
 var stylesheetStr = fs.readFileSync('./test/resources/cd.xsl', 'utf8');
 var stylesheetObj = libxmljs.parseXml(stylesheetStr);

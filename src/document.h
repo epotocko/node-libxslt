@@ -1,24 +1,23 @@
-// Very simple v8 wrapper for xml document, see "Wrapping C++ objects" section here http://nodejs.org/api/addons.html
+// Very simple v8 wrapper for xml document, see https://github.com/nodejs/node-addon-api/blob/master/doc/object_wrap.md
 
 #ifndef SRC_DOCUMENT_H_
 #define SRC_DOCUMENT_H_
 
+#include <napi.h>
 #include <libxslt/xslt.h>
 #include <libxslt/transform.h>
 #include <libxslt/xsltutils.h>
 #include <libexslt/exslt.h>
 
-class Document : public Nan::ObjectWrap {
-	public:
-	    static void Init(v8::Local<v8::Object> exports);
-	    static v8::Local<v8::Object> New(xmlDocumentPtr DocumentPtr);
-	    static NAN_METHOD(TransformSync);
-	    xmlDocumentPtr Document_obj;
-
-	private:
-	    explicit Document(xmlDocumentPtr DocumentPtr);
-	    ~Document();
-	    static Nan::Persistent<v8::Function> constructor;
+class Document : public Napi::ObjectWrap<Document> {
+    public:
+      static Napi::Object Init(Napi::Env env, Napi::Object exports);
+      static Napi::Value New(xmlDocumentPtr DocumentPtr);
+        
+      Document(const Napi::CallbackInfo& info);
+      ~Document();
+        
+      xmlDocumentPtr Document_obj;
 };
 
 #endif  // SRC_DOCUMENT_H_

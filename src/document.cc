@@ -1,33 +1,32 @@
-#include <node.h>
-#include <nan.h>
-
 #include "./document.h"
 
-using namespace v8;
+Document::Document(const Napi::CallbackInfo& info) : Napi::ObjectWrap<Document>(info)  {
 
-Nan::Persistent<Function> Document::constructor;
+}
 
-Document::Document(xmlDocumentPtr documentPtr) : document_obj(documentPtr) {}
-
-Document::~Document()
-{
+Document::~Document() {
     xmlFreeDocument(document_obj);
 }
 
-void Document::Init(Local<Object> exports) {
-	 // Prepare constructor template
-  	Local<FunctionTemplate> tpl = FunctionTemplate::New();
-  	tpl->SetClassName(String::NewSymbol("Document"));
-  	tpl->InstanceTemplate()->SetInternalFieldCount(1);
-  	
-  	constructor = Nan::Persistent<Function>::New(tpl->GetFunction());
+Napi::Object Document::Init(Napi::Env env, Napi::Object exports) {
+    Napi::HandleScope scope(env);
+
+    // Setup Document class definition
+    Napi::Function func = DefineClass(env, "Document", {});
+
+    Napi::FunctionReference* constructor = new Napi::FunctionReference();
+    *constructor = Napi::Persistent(func);
+
+    exports.Set("Document", func);
+    env.SetInstanceData<Napi::FunctionReference>(constructor);
+    return exports;
 }
 
 // not called from node, private api
-Local<Object> Document::New(xmlDocumentPtr documentPtr) {
-    Nan::EscapableHandleScope scope;
-    Local<Object> wrapper = Nan::New(constructor).ToLocalChecked()->NewInstance();
-    Document* Document = new Document(documentPtr);
-    Document->Wrap(wrapper);
-    return scope.Escape(wrapper);
+Napi::Value Document::New(xmlDocumentPtr documentPtr) {
+    Napi::FunctionReference* constructor = env.GetInstanceData<Napi::FunctionReference>();
+    Napi::Value value = constructor->New({});
+    Document* document = Napi::ObjectWrap<Document>::Unwrap(value.As<Napi::Object>());
+    document->document_obj = documentPtr;
+    return value;
 }

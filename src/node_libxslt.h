@@ -1,8 +1,8 @@
-#include <node.h>
+#include <napi.h>
 #include <nan.h>
 
-NAN_METHOD(StylesheetSync);
-NAN_METHOD(StylesheetASync);
-NAN_METHOD(ApplySync);
-NAN_METHOD(ApplyAsync);
-NAN_METHOD(RegisterEXSLT);
+Napi::Value StylesheetSync(const Napi::CallbackInfo&);
+Napi::Value StylesheetAsync(const Napi::CallbackInfo&);
+Napi::Value ApplySync(const Napi::CallbackInfo&);
+Napi::Value ApplyAsync(const Napi::CallbackInfo&);
+Napi::Value RegisterEXSLT(const Napi::CallbackInfo&);
