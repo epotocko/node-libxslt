@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [master, v1-napi]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} (${{ matrix.target }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24', '26']
+        target: [full, runtime]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test in Docker
+        env:
+          NODE_VERSIONS: ${{ matrix.node }}
+          TARGETS: ${{ matrix.target }}
+        run: bash scripts/test-matrix.sh
+      - name: Show log
+        if: failure()
+        run: cat build/test-matrix/*.log

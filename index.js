@@ -1,31 +1,23 @@
 /**
- * Node.js bindings for libxslt compatible with libxmljs
+ * Node.js bindings for libxslt
  * @module libxslt
  */
 
 var fs = require('fs');
-var libxmljs = require('node1-libxmljsmt');
-var binding = require('bindings')('node-libxslt');
-
-binding.registerEXSLT();
+var binding = require('node-gyp-build')(__dirname);
 
 /**
- * The libxmljs module. Prevents the need for a user's code to require it a second time. Also prevent weird bugs.
+ * Versions of the libxml2, libxslt and libexslt libraries loaded at runtime, as x.y.z strings.
  */
-exports.libxmljs = libxmljs;
+exports.versions = binding.versions;
 
 /**
  * A compiled stylesheet. Do not call this constructor, instead use parse or parseFile.
  *
- * store both the source document and the parsed stylesheet
- * if we don't store the stylesheet doc it will be deleted by garbage collector and it will result in segfaults.
- *
  * @constructor
- * @param {Document} stylesheetDoc - XML document source of the stylesheet
- * @param {Document} stylesheetObj - Simple wrapper of a libxslt stylesheet
+ * @param {object} stylesheetObj - Native wrapper of a compiled libxslt stylesheet
  */
-var Stylesheet = function(stylesheetDoc, stylesheetObj){
-	this.stylesheetDoc = stylesheetDoc;
+var Stylesheet = function(stylesheetObj){
 	this.stylesheetObj = stylesheetObj;
 };
 
@@ -34,28 +26,23 @@ var Stylesheet = function(stylesheetDoc, stylesheetObj){
  *
  * If no callback is given the function will run synchronously and return the result or throw an error.
  *
- * @param {string|Document} source - The content of the stylesheet as a string or a [libxmljs document]{@link https://github.com/polotek/libxmljs/wiki/Document}
+ * @param {string} source - The content of the stylesheet
  * @param {parseCallback} [callback] - The callback that handles the response. Expects err and Stylesheet object.
  * @return {Stylesheet} Only if no callback is given.
+ * @throws {TypeError} If source is not a string (libxmljs documents are no longer accepted)
  */
 exports.parse = function(source, callback) {
-	// stylesheet can be given as a string or a pre-parsed xml document
-	if (typeof source === 'string') {
-		try {
-			source = libxmljs.parseXml(source, { nocdata: true });
-		} catch (err) {
-			if (callback) return callback(err);
-			throw err;
-		}
+	if (typeof source !== 'string') {
+		throw new TypeError('The stylesheet source must be a string; libxmljs documents are no longer supported');
 	}
 
 	if (callback) {
-		binding.stylesheetAsync(source, function(err, stylesheet){
+		binding.compileStylesheetAsync(source, function(err, stylesheet){
 			if (err) return callback(err);
-			callback(null, new Stylesheet(source, stylesheet));
+			callback(null, new Stylesheet(stylesheet));
 		});
 	} else {
-		return new Stylesheet(source, binding.stylesheetSync(source));
+		return new Stylesheet(binding.compileStylesheetSync(source));
 	}
 };
 /**
@@ -87,7 +74,7 @@ exports.parseFile = function(sourcePath, callback) {
 /**
  * Options for applying a stylesheet
  * @typedef applyOptions
- * @property {String} outputFormat - Force the type of the output, either 'document' or 'string'. Default is to use the type of the input.
+ * @property {String} outputFormat - Only 'string' is supported; document output was removed with libxmljs.
  * @property {boolean} noWrapParams - If true then the parameters are XPath expressions, otherwise they are treated as strings. Default is false.
  */
 
@@ -96,11 +83,12 @@ exports.parseFile = function(sourcePath, callback) {
  *
  * If no callback is given the function will run synchronously and return the result or throw an error.
  *
- * @param {string|Document} source - The XML content to apply the stylesheet to given as a string or a [libxmljs document]{@link https://github.com/polotek/libxmljs/wiki/Document}
+ * @param {string} source - The XML content to apply the stylesheet to
  * @param {object} [params] - Parameters passed to the stylesheet ({@link http://www.w3schools.com/xsl/el_with-param.asp})
  * @param {applyOptions} [options] - Options
- * @param {applyCallback} [callback] - The callback that handles the response. Expects err and result of the same type as the source param passed to apply.
- * @return {string|Document} Only if no callback is given. Type is the same as the source param.
+ * @param {applyCallback} [callback] - The callback that handles the response. Expects err and the result string.
+ * @return {string} Only if no callback is given.
+ * @throws {TypeError} If source is not a string or outputFormat is not 'string'
  */
 Stylesheet.prototype.apply = function(source, params, options, callback) {
 	// params and options parameters are optional
@@ -126,23 +114,11 @@ Stylesheet.prototype.apply = function(source, params, options, callback) {
 		params = wrappedParams;
 	}
 
-	// Output format can be passed as explicit option or
-	// is implicit and mapped to the input format
-	var outputString;
-	if (options.outputFormat) {
-		outputString = (options.outputFormat === 'string');
-	} else {
-		outputString = (typeof source === 'string');
+	if (typeof source !== 'string') {
+		throw new TypeError('The XML source must be a string; libxmljs documents are no longer supported');
 	}
-
-	// xml can be given as a string or a pre-parsed xml document
-	if (typeof source === 'string') {
-		try {
-			source = libxmljs.parseXml(source);
-		} catch (err) {
-			if (callback) return callback(err);
-			throw err;
-		}
+	if (options.outputFormat && options.outputFormat !== 'string') {
+		throw new TypeError("outputFormat must be 'string'; document output is no longer supported");
 	}
 
 	// flatten the params object in an array
@@ -152,16 +128,10 @@ Stylesheet.prototype.apply = function(source, params, options, callback) {
 		paramsArray.push(params[key]);
 	}
 
-	var docResult = new libxmljs.Document();
-
 	if (callback) {
-		binding.applyAsync(this.stylesheetObj, source, paramsArray, outputString, docResult, function(err, strResult){
-			if (err) return callback(err);
-			callback(null, outputString ? strResult : docResult);
-		});
+		binding.applyStylesheetAsync(this.stylesheetObj, source, paramsArray, callback);
 	} else {
-		var strResult = binding.applySync(this.stylesheetObj, source, paramsArray, outputString, docResult);
-		return outputString ? strResult : docResult;
+		return binding.applyStylesheetSync(this.stylesheetObj, source, paramsArray);
 	}
 };
 
@@ -169,7 +139,7 @@ Stylesheet.prototype.apply = function(source, params, options, callback) {
  * Callback to the Stylesheet.apply function
  * @callback applyCallback
  * @param {error} [err] - Error either from parsing the XML document if given as a string or from applying the styleshet
- * @param {string|Document} [result] Result of the same type as the source param passed to apply
+ * @param {string} [result] Result of the transformation
  */
 
 /**
