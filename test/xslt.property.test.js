@@ -3,53 +3,10 @@ const assert = require('node:assert');
 const fc = require('fast-check');
 
 const libxslt = require('..');
+const { xmlText, tree, render, countElements, textContent } = require('./support/arbitraries');
 
 const XSL_OPEN = '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">';
 const XSL_CLOSE = '</xsl:stylesheet>';
-
-// Any character allowed in an XML document, weighted towards characters with special meaning
-const xmlChar = fc.oneof(
-	{ weight: 3, arbitrary: fc.constantFrom('&', '<', '>', "'", ']', '\t', '\n', '\r', ' ') },
-	{ weight: 3, arbitrary: fc.integer({ min: 0x20, max: 0x7e }).map((c) => String.fromCodePoint(c)) },
-	{ weight: 1, arbitrary: fc.integer({ min: 0x80, max: 0xd7ff }).map((c) => String.fromCodePoint(c)) },
-	{ weight: 1, arbitrary: fc.integer({ min: 0xe000, max: 0xfffd }).map((c) => String.fromCodePoint(c)) },
-	{ weight: 1, arbitrary: fc.integer({ min: 0x10000, max: 0x10ffff }).map((c) => String.fromCodePoint(c)) }
-);
-const xmlText = fc.string({ unit: xmlChar, maxLength: 40 });
-
-const escapeText = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-// An element tree as { name, children } with string children for text
-const tree = fc.letrec((tie) => ({
-	element: fc.record({
-		name: fc.stringMatching(/^[a-z][a-z0-9]{0,6}$/),
-		children: fc.array(fc.oneof({ weight: 2, arbitrary: xmlText }, { weight: 1, arbitrary: tie('element') }), { maxLength: 4 })
-	}, { noNullPrototype: true })
-})).element;
-
-function render(node) {
-	if (typeof node === 'string') return escapeText(node);
-	return `<${node.name}>${node.children.map(render).join('')}</${node.name}>`;
-}
-function countElements(node) {
-	return typeof node === 'string' ? 0 : 1 + node.children.reduce((sum, child) => sum + countElements(child), 0);
-}
-// XML parsers normalize line endings in each run of serialized text, so adjacent text
-// children merge into one run (\r then \n is one line ending), while a tag between them
-// separates the runs
-function textContent(node) {
-	if (typeof node === 'string') return node.replace(/\r\n?/g, '\n');
-	let text = '', run = '';
-	for (let child of node.children) {
-		if (typeof child === 'string') {
-			run += child;
-		} else {
-			text += textContent(run) + textContent(child);
-			run = '';
-		}
-	}
-	return text + textContent(run);
-}
 
 function applyAsync(stylesheet, source, params) {
 	return new Promise((resolve, reject) => {
@@ -73,8 +30,8 @@ describe('XSLT properties', function() {
 			`${XSL_OPEN}<xsl:template match="/"><xsl:copy-of select="."/></xsl:template>${XSL_CLOSE}`);
 	});
 
-	it('should pass any string parameter without double quotes through unchanged', function() {
-		fc.assert(fc.property(xmlText.filter((value) => !value.includes('"')), (value) => {
+	it('should pass any string parameter through unchanged', function() {
+		fc.assert(fc.property(xmlText, (value) => {
 			assert.strictEqual(echoParam.apply('<root/>', { p: value }), value);
 		}));
 	});
@@ -86,10 +43,10 @@ describe('XSLT properties', function() {
 		}), {
 			examples: [
 				// A line ending split across two adjacent text nodes
-				[{ name: 'a', children: ['\r', '\n'] }],
+				[{ name: 'a', attributes: [], children: ['\r', '\n'] }],
 				// A carriage return and a line feed separated by a tag
-				[{ name: 'a', children: [{ name: 'a', children: ['\r'] }, '\n'] }],
-				[{ name: 'a', children: ['\r', { name: 'a', children: ['\n'] }] }]
+				[{ name: 'a', attributes: [], children: [{ name: 'a', attributes: [], children: ['\r'] }, '\n'] }],
+				[{ name: 'a', attributes: [], children: ['\r', { name: 'a', attributes: [], children: ['\n'] }] }]
 			]
 		});
 	});
@@ -107,7 +64,7 @@ describe('XSLT properties', function() {
 		let job = fc.record({
 			stylesheet: fc.nat({ max: stylesheets.length - 1 }),
 			root: tree,
-			p: xmlText.filter((value) => !value.includes('"'))
+			p: xmlText
 		});
 		await fc.assert(fc.asyncProperty(fc.array(job, { minLength: 1, maxLength: 40 }), async (jobs) => {
 			let actual = await Promise.all(jobs.map((j) => applyAsync(stylesheets[j.stylesheet], render(j.root), { p: j.p })));

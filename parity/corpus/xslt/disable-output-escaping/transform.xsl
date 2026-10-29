@@ -1,0 +1,1 @@
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:template match="/"><out><xsl:value-of select="/doc" disable-output-escaping="yes"/>|<xsl:value-of select="/doc"/>|<xsl:text disable-output-escaping="yes">&lt;raw/&gt;</xsl:text></out></xsl:template></xsl:stylesheet>

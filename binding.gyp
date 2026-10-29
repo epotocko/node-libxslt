@@ -6,9 +6,11 @@
         "src/addon.cc",
         "src/core/errors.cc",
         "src/core/parse.cc",
+        "src/core/xpath.cc",
         "src/core/xslt.cc",
         "src/napi/convert.cc",
         "src/napi/stylesheet.cc",
+        "src/napi/xpath.cc",
         "src/napi/xslt.cc"
       ],
       "dependencies": [

@@ -1,271 +1,200 @@
-node-libxslt
-============
+# node-libxslt
 
-[![Build status](https://travis-ci.org/albanm/node-libxslt.svg)](https://travis-ci.org/albanm/node-libxslt)
-[![Code Climate](https://codeclimate.com/github/albanm/node-libxslt/badges/gpa.svg)](https://codeclimate.com/github/albanm/node-libxslt)
-[![NPM version](https://badge.fury.io/js/libxslt.svg)](http://badge.fury.io/js/libxslt)
+Node.js bindings for [libxslt](https://gitlab.gnome.org/GNOME/libxslt), the XSLT 1.0 processor from the GNOME project, and a small XPath API on [libxml2](https://gitlab.gnome.org/GNOME/libxml2), built on [Node-API](https://nodejs.org/api/n-api.html).
 
-Node.js bindings for [libxslt](http://xmlsoft.org/libxslt/) compatible with [libxmljs](https://github.com/polotek/libxmljs/issues/226).
+- **libxslt behavior, exactly.** Use it when a transformation has to match what libxslt (and `xsltproc`) produce, including EXSLT extensions.
+- **One binary for every Node.js version.** Node-API is ABI-stable, so a build works on all supported Node.js releases without rebuilding.
+- **Runs off the main thread.** The callback forms parse and transform on the libuv threadpool, so large transforms don't block the event loop.
+- **Uses the system libraries.** It links the operating system's libxml2 and libxslt, so security updates from your distribution apply without rebuilding this package.
 
-Installation
-------------
+It is a rewrite of [albanm/node-libxslt](https://github.com/albanm/node-libxslt) that keeps its XSLT API. See [Changes from 0.x](#changes-from-0x).
 
-    npm install libxslt
+> Status: 1.0 pre-release.
 
-From source:
+## Requirements
 
-    git clone https://github.com/albanm/node-libxslt.git
-		git submodule update --init
-		npm install
-		npm test
+- Node.js 22 or later
+- Linux, with libxml2 2.9.14 or later and libxslt 1.1.35 or later. The Debian images `node:22`, `node:24` and `node:26` meet this. macOS is untested; Windows isn't supported.
+- To build: `pkg-config`, a C++17 compiler, Python 3 and the development headers
 
-Basic usage
------------
+| Image | Build | Run |
+|---|---|---|
+| `node:<version>` (Debian) | everything is preinstalled | everything is preinstalled |
+| `node:<version>-slim` (Debian) | `apt-get install python3 make g++ pkg-config libxml2-dev libxslt1-dev` | `apt-get install libxml2 libxslt1.1` |
+
+## Installation
+
+The package isn't published to the npm registry. Install it from GitHub:
+
+```sh
+npm install epotocko/node-libxslt
+```
+
+The native addon builds during installation.
+
+## Usage
 
 ```js
-var libxslt = require('libxslt');
+const libxslt = require('@epotocko/node-libxslt');
 
-libxslt.parse(stylesheetString, function(err, stylesheet){
-  var params = {
-    MyParam: 'my value'
-  };
+const stylesheet = libxslt.parse(xslString);
+const result = stylesheet.apply(xmlString, { title: 'Report' });
+```
 
-  // 'params' parameter is optional
-  stylesheet.apply(documentString, params, function(err, result){
-    // err contains any error from parsing the document or applying the stylesheet
-    // result is a string containing the result of the transformation
-  });  
+`parse` and `apply` run synchronously when called without a callback, and asynchronously (on the libuv threadpool) when given one. `parseFile` and `applyToFile` always take a callback.
+
+```js
+libxslt.parse(xslString, (err, stylesheet) => {
+	if (err) return handle(err);
+	stylesheet.apply(xmlString, { title: 'Report' }, (err, result) => {
+		if (err) return handle(err);
+		console.log(result);
+	});
 });
 ```
 
-Libxmljs integration
---------------------
+### `libxslt.parse(source, [callback])`
 
-Node-libxslt depends on [libxmljs](https://github.com/polotek/libxmljs/issues/226) in the same way that [libxslt](http://xmlsoft.org/libxslt/) depends on [libxml](http://xmlsoft.org/). This dependancy makes possible to bundle and to load in memory libxml only once for users of both libraries.
+Parses and compiles a stylesheet. `source` must be a string. CDATA sections in the stylesheet are merged into text. Relative `xsl:include` and `xsl:import` paths, and relative `document()` URIs, resolve against the process's working directory.
 
-The libxmljs module required by node-libxslt is exposed as ```require('libxslt').libxmljs```. This prevents depending on libxmljs twice which is not optimal and source of weird bugs.
+Returns a `Stylesheet`, or calls `callback(err, stylesheet)`.
 
-It is possible to work with libxmljs documents instead of strings:
+### `libxslt.parseFile(path, callback)`
 
-```js
-var lixslt = require('libxslt');
-var libxmljs = libxslt.libxmljs;
+Reads a file as UTF-8 and parses it as `parse` does.
 
-var stylesheetObj = libxmljs.parseXml(stylesheetString, { nocdata: true });
-var stylesheet = libxslt.parse(stylesheetObj);
+### `stylesheet.apply(source, [params], [options], [callback])`
 
-var document = libxmljs.parseXml(documentString);
-stylesheet.apply(document, function(err, result){
-  // result is now a libxmljs document containing the result of the transformation
-});
+Applies the stylesheet to an XML string and returns the serialized result as a string, or calls `callback(err, result)`.
 
-```
+- `params`: an object of stylesheet parameters (top-level `xsl:param`). String values are passed as XPath string literals, so any string arrives unchanged. Other values (such as numbers) are converted with `String()` and evaluated as XPath expressions.
+- `options.noWrapParams`: when `true`, every parameter value is an XPath expression instead, for example `{ items: "/root/item[@id='123']" }`.
+- `options.outputFormat`: only `'string'` (the default) is supported.
 
-This is only useful if you already needed to parse a document before applying the stylesheet for previous manipulations.
-Or if you wish to be returned a document instead of a string for ulterior manipulations.
-In these cases you will prevent extraneous parsings and serializations.
+A compiled stylesheet is read-only, so it can be applied many times, including concurrently.
 
-Includes
---------
+### `stylesheet.applyToFile(path, [params], [options], callback)`
 
-XSL includes are supported but relative paths must be given from the execution directory, usually the root of the project.
+Reads a file as UTF-8 and applies the stylesheet to it, as `apply` does.
 
-Includes are resolved when parsing the stylesheet by libxml. Therefore the parsing task becomes IO bound, which is why you should not use synchronous parsing when you expect some includes.
+### `libxslt.versions`
 
-Sync or async
--------------
+The versions of the libraries loaded at runtime, for example `{ libxml2: '2.9.14', libxslt: '1.1.35', libexslt: '0.8.20' }`.
 
-The same *parse()* and *apply()* functions can be used in synchronous mode simply by removing the callback parameter.
-In this case if a parsing error occurs it will be thrown.
+## XPath
+
+Select or update nodes in an XML string. Each call parses the string, does its work and frees everything, so results are plain objects and strings, and nothing needs to be released.
 
 ```js
-var lixslt = require('libxslt');
+const { xpathSelect, xpathUpdate } = require('@epotocko/node-libxslt');
 
-var stylesheet = libxslt.parse(stylesheetString);
+const status = await xpathSelect(cxml, '//Response/Status', { first: true, fields: ['text', 'attributes'] });
+// { text: 'Accepted', attributes: { code: '200', text: 'OK' } }
 
-var result = stylesheet.apply(documentString);
-
+const updated = await xpathUpdate(xml, '//BrowserFormPost/URL', 'https://example.com/return?id=1&lang=en');
 ```
 
-The asynchronous functions use the [libuv work queue](http://nikhilm.github.io/uvbook/threads.html#libuv-work-queue)
-to provide parallelized computation in node.js worker threads. This makes it non-blocking for the main event loop of node.js.
+Expressions are XPath 1.0, evaluated with the root element as the context node. No namespace prefixes are registered, so match namespaced nodes with `local-name()`, for example `/*[local-name()='Envelope']/*[local-name()='Body']`.
 
-Note that libxmljs parsing doesn't use the work queue, so only a part of the process is actually parallelized.
+### `xpathSelect(xml, expression, [options])` and `xpathSelectSync`
 
-A small benchmark is available in the project. It has a very limited scope, it uses always the same small transformation a few thousand times.
-To run it use:
+Resolves to an array of node descriptors in document order. `xpathSelectSync` returns the same result synchronously.
 
-    node benchmark.js
+- `options.first`: resolve to the first node, or `null`, instead of an array.
+- `options.fields`: the descriptor fields to compute; the default is `['type', 'name', 'text']`. Only requested fields are computed, which matters for `text`, `xml` and `childXml` on large elements.
 
-This is an example of its results with an intel core i5 3.1GHz:
+| Field | Value |
+|---|---|
+| `type` | `'element'`, `'attribute'`, `'text'`, `'cdata'`, `'comment'`, `'pi'`, `'document'`, `'namespace'`, `'entity_ref'` or `'other'` |
+| `name` | The local name (no prefix) of an element or attribute, the target of a processing instruction; `null` for other nodes |
+| `text` | All descendant text of an element or the document; the value of an attribute; the content of other nodes |
+| `attributes` | An element's attributes as `{ localName: value }`, without namespace declarations. If two attributes share a local name (`xml:lang` and `lang`), the later one wins. `null` for other nodes |
+| `xml` | The node serialized as it appears in the document. Namespace declarations inherited from ancestors are not added |
+| `childXml` | An array with each child of an element or the document serialized as `xml` is, including whitespace-only text; empty for other nodes |
 
+### `xpathUpdate(xml, expression, value, [options])` and `xpathUpdateSync`
+
+Sets the value of every selected node and resolves to the serialized document. `xpathUpdateSync` returns it synchronously.
+
+- Values are literal text: `a & b` is written as `a &amp; b`, and `&amp;` as `&amp;amp;`.
+- An element's children are replaced by the value. Attributes, text, CDATA, comment and processing instruction nodes get the value as their content. Other selected nodes (such as the document node) are skipped.
+- When the selected nodes include an element and nodes inside it, the element's value wins.
+- An expression that selects nothing returns the document unchanged (re-serialized).
+- `options.format`: indent element-only content. The default keeps the document's layout.
+
+The result is UTF-8 and starts with `<?xml version="1.0" encoding="UTF-8"?>`.
+
+### XPath errors
+
+Invalid XML is reported as for XSLT (see [Errors](#errors)). An invalid expression or an unregistered namespace prefix gives an `Error` with libxml2's XPath message (for example `Invalid expression`) and `domain` 12. An expression that doesn't select nodes, such as `count(//item)`, gives `The XPath expression must select nodes, but it returned a number`. The promise forms reject; the synchronous forms throw.
+
+## Errors
+
+- **Invalid XML** (stylesheet or source) throws, or passes to the callback, an `Error` whose message is libxml2's. It has the properties `domain`, `code`, `level`, `line`, `column`, and, when libxml2 provides them, `file`, `str1`, `str2`, `str3` and `int1`.
+- **A stylesheet that fails to compile** gives an `Error` with libxslt's last message, for example `xsl:include : unable to load missing.xsl`.
+- **A transform that fails** gives an `Error` with the message `Failed to apply stylesheet`.
+- **Every error has a `details` property** with everything libxml2 and libxslt reported during the operation, for example `Variable 'name' has not been declared.`
+- **Wrong argument types** throw a `TypeError` synchronously, including in the callback forms.
+
+Messages from a successful transform, such as `xsl:message` output, are written to stderr.
+
+## Security
+
+Stylesheets and documents often come from outside the application, so the defaults are restrictive:
+
+| Action | Allowed |
+|---|---|
+| Reading local files (`xsl:include`, `xsl:import`, `document()`) | Yes |
+| Reading over the network | No |
+| Writing files or creating directories (`exsl:document`) | No |
+| Writing over the network | No |
+| Expanding external entities in documents (XSLT and XPath) | No |
+| Loading external DTDs | No |
+
+A refused action fails the parse or the transform, and the error's `details` says what was refused. The policy can't be changed yet.
+
+## Threading
+
+The callback forms of `parse` and `apply`, and `xpathSelect` and `xpathUpdate`, run on the libuv threadpool, which Node.js also uses for file system, DNS, compression and crypto work. It has 4 threads by default. Applications that run many transforms at once can raise this with the `UV_THREADPOOL_SIZE` environment variable, set before Node.js starts.
+
+The addon can be loaded in [worker threads](https://nodejs.org/api/worker_threads.html); each thread gets its own state.
+
+## Changes from 0.x
+
+This release replaces the libxmljs-based implementation of albanm/node-libxslt 0.x. Code that passes strings works unchanged, apart from the following. Code that used `require('libxslt').libxmljs` for XPath can use [`xpathSelect` and `xpathUpdate`](#xpath).
+
+**Removed**
+
+- libxmljs documents: `parse()` and `apply()` accept only strings, and `require('libxslt').libxmljs` no longer exists. Passing anything else throws a `TypeError`.
+- `outputFormat: 'document'`. Results are always strings.
+
+**Changed behavior**
+
+- **String parameters containing a double quote** now arrive intact. In 0.x the transform returned an empty string without an error.
+- **`<xsl:message terminate="yes">`** now fails the transform. 0.x returned the output produced up to that point.
+- **Whitespace in included stylesheets** marked `xml:space="preserve"` is now kept, as the XSLT specification requires.
+- **Network access, file writes and external entities** are blocked (see [Security](#security)).
+- **Errors** have a new `details` property.
+- **The callback forms** now also parse the XML off the main thread, so errors from invalid XML reach the callback asynchronously. 0.x called the callback synchronously for those errors.
+
+**Unchanged, but worth knowing**
+
+- Results are decoded as UTF-8. A stylesheet with `<xsl:output encoding="ISO-8859-1"/>` (or another non-UTF-8 encoding) produces bytes that aren't valid UTF-8, so non-ASCII characters become U+FFFD. Use UTF-8 output.
+
+## Development
+
+The tests build and run the addon in Docker against each supported Node.js version, on full and slim images:
+
+```sh
+npm run test:matrix                                      # Node 22, 24 and 26
+NODE_VERSIONS=24 TARGETS=full npm run test:matrix        # one combination
+npm run test:matrix -- npx mocha test/addon.test.js      # one test file
 ```
-10000 synchronous parse from parsed doc                in 52ms = 192308/s
-10000 asynchronous parse in series from parsed doc     in 229ms = 43668/s
-10000 asynchronous parse in parallel from parsed doc   in 56ms = 178571/s
-10000 synchronous apply from parsed doc                in 329ms = 30395/s
-10000 asynchronous apply in series from parsed doc     in 569ms = 17575/s
-10000 asynchronous apply in parallel from parsed doc   in 288ms = 34722/s
 
-```
+To build and test locally, install the build requirements above and run `npm install && npm test`.
 
-Observations:
-  - it's pretty fast !
-  - asynchronous is slower when running in series.
-  - asynchronous can become faster when concurrency is high.
+`npm run parity:capture` records the behavior of libxslt 0.10.2 on Node.js 18 (in Docker) for the parity tests in `test/parity.xslt.test.js`. Its output isn't committed.
 
-Conclusion:
-  - use asynchronous by default it will be kinder to your main event loop and is pretty fast anyway.
-  - use synchronous only if you really want the highest performance and expect low concurrency.
-  - of course you can also use synchronous simply to reduce code depth. If you don't expect a huge load it will be ok.
-  - DO NOT USE synchronous parsing if there is some includes in your XSL stylesheets.
+## License
 
-Environment compatibility
--------------------------
-
-For now 64bits linux and 32bits windows are confirmed. Other environments are probably ok, but not checked. Please report an issue if you encounter some difficulties.
-
-Node-libxslt depends on [node-gyp](https://github.com/TooTallNate/node-gyp), you will need to meet its requirements. This can be a bit painful mostly for windows users. The node-gyp version bundled in your npm will have to be greater than 0.13.0, so you might have to follow [these instructions to upgrade](https://github.com/TooTallNate/node-gyp/wiki/Updating-npm's-bundled-node-gyp). There is no system dependancy otherwise, libxslt is bundled in the project.
-
-API Reference
-=============
-  Node.js bindings for libxslt compatible with libxmljs
-
-<a name="module_libxslt.libxmljs"></a>
-### libxslt.libxmljs
-The libxmljs module. Prevents the need for a user's code to require it a second time. Also prevent weird bugs.
-
-**Kind**: static property of <code>[libxslt](#module_libxslt)</code>  
-<a name="module_libxslt.parse"></a>
-### libxslt.parse(source, [callback]) ⇒ <code>Stylesheet</code>
-Parse a XSL stylesheet
-
-If no callback is given the function will run synchronously and return the result or throw an error.
-
-**Kind**: static method of <code>[libxslt](#module_libxslt)</code>  
-**Returns**: <code>Stylesheet</code> - Only if no callback is given.  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| source | <code>string</code> &#124; <code>Document</code> | The content of the stylesheet as a string or a [libxmljs document](https://github.com/polotek/libxmljs/wiki/Document) |
-| [callback] | <code>parseCallback</code> | The callback that handles the response. Expects err and Stylesheet object. |
-
-<a name="module_libxslt.parseFile"></a>
-### libxslt.parseFile(sourcePath, callback)
-Parse a XSL stylesheet
-
-**Kind**: static method of <code>[libxslt](#module_libxslt)</code>  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| sourcePath | <code>stringPath</code> | The path of the file |
-| callback | <code>parseFileCallback</code> | The callback that handles the response. Expects err and Stylesheet object. |
-
-<a name="module_libxslt..Stylesheet"></a>
-### libxslt~Stylesheet
-**Kind**: inner class of <code>[libxslt](#module_libxslt)</code>  
-
-* [~Stylesheet](#module_libxslt..Stylesheet)
-    * [new Stylesheet(stylesheetDoc, stylesheetObj)](#new_module_libxslt..Stylesheet_new)
-    * [.apply(source, [params], [options], [callback])](#module_libxslt..Stylesheet+apply) ⇒ <code>string</code> &#124; <code>Document</code>
-    * [.applyToFile(sourcePath, [params], [options], callback)](#module_libxslt..Stylesheet+applyToFile)
-
-<a name="new_module_libxslt..Stylesheet_new"></a>
-#### new Stylesheet(stylesheetDoc, stylesheetObj)
-A compiled stylesheet. Do not call this constructor, instead use parse or parseFile.
-
-store both the source document and the parsed stylesheet
-if we don't store the stylesheet doc it will be deleted by garbage collector and it will result in segfaults.
-
-
-| Param | Type | Description |
-| --- | --- | --- |
-| stylesheetDoc | <code>Document</code> | XML document source of the stylesheet |
-| stylesheetObj | <code>Document</code> | Simple wrapper of a libxslt stylesheet |
-
-<a name="module_libxslt..Stylesheet+apply"></a>
-#### stylesheet.apply(source, [params], [options], [callback]) ⇒ <code>string</code> &#124; <code>Document</code>
-Apply a stylesheet to a XML document
-
-If no callback is given the function will run synchronously and return the result or throw an error.
-
-**Kind**: instance method of <code>[Stylesheet](#module_libxslt..Stylesheet)</code>  
-**Returns**: <code>string</code> &#124; <code>Document</code> - Only if no callback is given. Type is the same as the source param.  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| source | <code>string</code> &#124; <code>Document</code> | The XML content to apply the stylesheet to given as a string or a [libxmljs document](https://github.com/polotek/libxmljs/wiki/Document) |
-| [params] | <code>object</code> | Parameters passed to the stylesheet ([http://www.w3schools.com/xsl/el_with-param.asp](http://www.w3schools.com/xsl/el_with-param.asp)) |
-| [options] | <code>applyOptions</code> | Options |
-| [callback] | <code>applyCallback</code> | The callback that handles the response. Expects err and result of the same type as the source param passed to apply. |
-
-<a name="module_libxslt..Stylesheet+applyToFile"></a>
-#### stylesheet.applyToFile(sourcePath, [params], [options], callback)
-Apply a stylesheet to a XML file
-
-**Kind**: instance method of <code>[Stylesheet](#module_libxslt..Stylesheet)</code>  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| sourcePath | <code>string</code> | The path of the file to read |
-| [params] | <code>object</code> | Parameters passed to the stylesheet ([http://www.w3schools.com/xsl/el_with-param.asp](http://www.w3schools.com/xsl/el_with-param.asp)) |
-| [options] | <code>applyOptions</code> | Options |
-| callback | <code>applyToFileCallback</code> | The callback that handles the response. Expects err and result as string. |
-
-<a name="module_libxslt..parseCallback"></a>
-### libxslt~parseCallback : <code>function</code>
-Callback to the parse function
-
-**Kind**: inner typedef of <code>[libxslt](#module_libxslt)</code>  
-
-| Param | Type |
-| --- | --- |
-| [err] | <code>error</code> |
-| [stylesheet] | <code>Stylesheet</code> |
-
-<a name="module_libxslt..parseFileCallback"></a>
-### libxslt~parseFileCallback : <code>function</code>
-Callback to the parseFile function
-
-**Kind**: inner typedef of <code>[libxslt](#module_libxslt)</code>  
-
-| Param | Type |
-| --- | --- |
-| [err] | <code>error</code> |
-| [stylesheet] | <code>Stylesheet</code> |
-
-<a name="module_libxslt..applyOptions"></a>
-### libxslt~applyOptions
-Options for applying a stylesheet
-
-**Kind**: inner typedef of <code>[libxslt](#module_libxslt)</code>  
-**Properties**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| outputFormat | <code>String</code> | Force the type of the output, either 'document' or 'string'. Default is to use the type of the input. |
-| noWrapParams | <code>boolean</code> | If true then the parameters are XPath expressions, otherwise they are treated as strings. Default is false. |
-
-<a name="module_libxslt..applyCallback"></a>
-### libxslt~applyCallback : <code>function</code>
-Callback to the Stylesheet.apply function
-
-**Kind**: inner typedef of <code>[libxslt](#module_libxslt)</code>  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| [err] | <code>error</code> | Error either from parsing the XML document if given as a string or from applying the styleshet |
-| [result] | <code>string</code> &#124; <code>Document</code> | Result of the same type as the source param passed to apply |
-
-<a name="module_libxslt..applyToFileCallback"></a>
-### libxslt~applyToFileCallback : <code>function</code>
-Callback to the Stylesheet.applyToFile function
-
-**Kind**: inner typedef of <code>[libxslt](#module_libxslt)</code>  
-
-| Param | Type | Description |
-| --- | --- | --- |
-| [err] | <code>error</code> | Error either from reading the file, parsing the XML document or applying the styleshet |
-| [result] | <code>string</code> |  |
-
-*documented by [jsdoc-to-markdown](https://github.com/75lb/jsdoc-to-markdown)*.
+MIT. Originally written by Alban Mouton, with contributions from Rui Azevedo.

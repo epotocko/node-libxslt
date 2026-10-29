@@ -11,6 +11,23 @@ var binding = require('node-gyp-build')(__dirname);
  */
 exports.versions = binding.versions;
 
+var xpath = require('./xpath');
+exports.xpathSelect = xpath.xpathSelect;
+exports.xpathSelectSync = xpath.xpathSelectSync;
+exports.xpathUpdate = xpath.xpathUpdate;
+exports.xpathUpdateSync = xpath.xpathUpdateSync;
+
+/**
+ * Quotes a string as an XPath string literal. XPath 1.0 has no escape character, so a string
+ * containing both quote types is built with concat().
+ * @private
+ */
+function quoteXPathString(value) {
+	if (value.indexOf('"') === -1) return '"' + value + '"';
+	if (value.indexOf("'") === -1) return "'" + value + "'";
+	return 'concat(' + value.split('"').map(function(part) { return '"' + part + '"'; }).join(", '\"', ") + ')';
+}
+
 /**
  * A compiled stylesheet. Do not call this constructor, instead use parse or parseFile.
  *
@@ -107,8 +124,8 @@ Stylesheet.prototype.apply = function(source, params, options, callback) {
 	if (!options.noWrapParams) {
 		var wrappedParams = {};
 	  for(var p in params) {
-	    // string parameters must be surrounded by quotes to be usable by the stylesheet
-	    if (typeof params[p] === 'string') wrappedParams[p] = '"' + params[p] + '"';
+	    // string parameters must be quoted as XPath string literals to be usable by the stylesheet
+	    if (typeof params[p] === 'string') wrappedParams[p] = quoteXPathString(params[p]);
 			else wrappedParams[p] = params[p];
 	  }
 		params = wrappedParams;

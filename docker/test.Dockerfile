@@ -1,5 +1,5 @@
 # Builds and tests the addon against the system libxml2/libxslt of the Debian Node images.
-#   full:    node:<v> image, which already ships the -dev packages (as eql-noflo's image does)
+#   full:    node:<v> image, which already ships the -dev packages
 #   build:   node:<v>-slim plus the build toolchain and -dev packages
 #   runtime: node:<v>-slim with only the runtime libraries, running the binary from build
 # Usage: docker build -f docker/test.Dockerfile --build-arg NODE_VERSION=24 --target runtime .

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:default" xmlns:p="urn:prefixed" xmlns:q="urn:other">
+  <p:item p:id="1" q:id="2" id="3">prefixed</p:item>
+  <item>default</item>
+  <q:item xmlns:q="urn:redeclared">redeclared</q:item>
+</root>

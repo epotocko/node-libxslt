@@ -13,6 +13,7 @@
 #include "core/xslt.h"
 #include "napi/addon_data.h"
 #include "napi/stylesheet.h"
+#include "napi/xpath.h"
 #include "napi/xslt.h"
 
 namespace {
@@ -48,6 +49,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     data->stylesheetConstructor = Napi::Persistent(nlx::Stylesheet::DefineClass(env));
     env.SetInstanceData(data);
     nlx::RegisterXslt(env, exports);
+    nlx::RegisterXPath(env, exports);
     return exports;
 }
 
