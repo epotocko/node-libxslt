@@ -18,7 +18,8 @@
     "build": "node-gyp rebuild",
     "test": "mocha",
     "test:matrix": "bash scripts/test-matrix.sh",
-    "parity:capture": "bash parity/capture.sh"
+    "parity:capture": "bash parity/capture.sh",
+    "test:sanitize": "bash scripts/sanitize.sh"
   },
   "keywords": [
     "xml",

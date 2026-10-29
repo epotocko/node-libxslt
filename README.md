@@ -157,7 +157,7 @@ A refused action fails the parse or the transform, and the error's `details` say
 
 The callback forms of `parse` and `apply`, and `xpathSelect` and `xpathUpdate`, run on the libuv threadpool, which Node.js also uses for file system, DNS, compression and crypto work. It has 4 threads by default. Applications that run many transforms at once can raise this with the `UV_THREADPOOL_SIZE` environment variable, set before Node.js starts.
 
-The addon can be loaded in [worker threads](https://nodejs.org/api/worker_threads.html); each thread gets its own state.
+The addon can be loaded in [worker threads](https://nodejs.org/api/worker_threads.html); each thread gets its own state. A worker thread can be terminated while its calls are still running; their results are discarded.
 
 ## Changes from 0.x
 
@@ -192,6 +192,12 @@ npm run test:matrix -- npx mocha test/addon.test.js      # one test file
 ```
 
 To build and test locally, install the build requirements above and run `npm install && npm test`.
+
+`npm run test:sanitize` (about 5 minutes) checks memory and thread safety:
+
+- the test suite with the addon, libxml2 and libxslt built with AddressSanitizer, and the addon with UndefinedBehaviorSanitizer
+- `src/core` used from 8 threads at once (`test/native/core_test.cc`), under ThreadSanitizer, and under AddressSanitizer with LeakSanitizer
+- memory growth over 500,000 mixed calls (`test/leak/rss.js`)
 
 `npm run parity:capture` records the behavior of libxslt 0.10.2 on Node.js 18 (in Docker) for the parity tests in `test/parity.xslt.test.js`. Its output isn't committed.
 

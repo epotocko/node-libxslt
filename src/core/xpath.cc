@@ -171,7 +171,14 @@ std::string XPathUpdate(const std::string& xml, const std::string& expression,
     ErrorCapture capture;
     DocPtr doc = ParseXml(xml, kParseOptions, capture);
     XPathObjectPtr result = EvaluateNodeSet(doc.get(), expression, capture);
-    std::vector<xmlNode*> nodes = Nodes(result.get());
+    // Free the result before changing the tree: setting an element's value frees the nodes inside
+    // it, and freeing a node-set reads the type of every node in it. Namespace nodes in a result
+    // are copies that the node-set owns, and have no value to set, so they are left out.
+    std::vector<xmlNode*> nodes;
+    for (xmlNode* node : Nodes(result.get())) {
+        if (node->type != XML_NAMESPACE_DECL) nodes.push_back(node);
+    }
+    result.reset();
     // Reverse document order: a node inside another matched element is set before that
     // element replaces its children, so no freed node is touched
     for (auto node = nodes.rbegin(); node != nodes.rend(); ++node) {

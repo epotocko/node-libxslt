@@ -2,3 +2,6 @@ spec:
   - 'test/**/*.test.js'
 reporter: spec
 timeout: 10000
+# The stress tests force garbage collection
+node-option:
+  - expose-gc

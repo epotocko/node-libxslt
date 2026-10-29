@@ -109,6 +109,12 @@ describe('xpathUpdate', function() {
 		assert.strictEqual(xpathUpdateSync('<a>t<!--c--><?p d?></a>', '/a/node()', 'v'),
 			DECLARATION + '<a>v<!--v--><?p v?></a>\n');
 	});
+	it('should update elements together with nodes inside them', function() {
+		// Regression: the nodes inside were freed and then read again when the XPath result was freed
+		let xml = '<!DOCTYPE r [<!ENTITY e "x &amp; y">]><r><item>&e; a<!--c--><![CDATA[d]]><b/></item><item/></r>';
+		let updated = xpathUpdateSync(xml, '//item | //comment() | //item/node()', 'v');
+		assert.match(updated, /<r><item>v<\/item><item>v<\/item><\/r>/);
+	});
 	it('should skip nodes that have no value, such as the document node', function() {
 		assert.strictEqual(xpathUpdateSync('<a>t</a>', '/', 'v'), DECLARATION + '<a>t</a>\n');
 	});

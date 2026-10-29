@@ -16,7 +16,8 @@
       "dependencies": [
         "<!(node -p \"require('node-addon-api').targets\"):node_addon_api_except"
       ],
-      "defines": [ "NAPI_VERSION=8" ],
+      # A callback can't run in a worker thread that is being terminated; drop its exception instead of aborting
+      "defines": [ "NAPI_VERSION=8", "NODE_API_SWALLOW_UNTHROWABLE_EXCEPTIONS" ],
       # Dynamically link the system libxml2/libxslt so there is one copy of each in the process
       "cflags_cc": [ "-std=c++17", "<!@(pkg-config --cflags libxml-2.0 libxslt libexslt)" ],
       "libraries": [ "<!@(pkg-config --libs libxml-2.0 libxslt libexslt)" ],
