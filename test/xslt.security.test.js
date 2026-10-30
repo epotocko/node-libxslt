@@ -80,6 +80,37 @@ describe('XSLT security', function() {
 		assert.match(await applyAsync(stylesheet, '<root/>'), /^\d+$/);
 	});
 
+	// A local file (which stylesheets may read) declaring an external DTD and entities over the
+	// network, and an external entity reading another local file
+	function localFileWithExternals(name, root) {
+		let dir = fs.mkdtempSync(path.join(os.tmpdir(), 'node-libxslt-'));
+		let secret = path.join(dir, 'secret.txt');
+		fs.writeFileSync(secret, 'TOP-SECRET');
+		let file = path.join(dir, name);
+		fs.writeFileSync(file, `<?xml version="1.0"?>\n<!DOCTYPE ${root.name} SYSTEM "${baseUrl}/remote.dtd" [\n` +
+			`<!ENTITY secret SYSTEM "file://${secret}">\n<!ENTITY remote SYSTEM "${baseUrl}/remote.ent">\n]>\n${root.xml}`);
+		return file;
+	}
+
+	it('should not load DTDs or expand external entities in an included stylesheet', function() {
+		let included = localFileWithExternals('included.xsl', {
+			name: 'xsl:stylesheet',
+			xml: `${XSL_OPEN}><xsl:template name="t">[&secret;][&remote;]</xsl:template>${XSL_CLOSE}`
+		});
+		let stylesheet = libxslt.parse(`${XSL_OPEN}><xsl:include href="${included}"/>` +
+			`<xsl:output method="text"/><xsl:template match="/"><xsl:call-template name="t"/></xsl:template>${XSL_CLOSE}`);
+		assert.doesNotMatch(stylesheet.apply('<root/>'), /TOP-SECRET/);
+		assert.strictEqual(requests, 0);
+	});
+
+	it('should not load DTDs or expand external entities in a document read with document()', async function() {
+		let data = localFileWithExternals('data.xml', { name: 'data', xml: '<data>[&secret;][&remote;]</data>' });
+		let stylesheet = libxslt.parse(
+			`${XSL_OPEN}><xsl:output method="text"/><xsl:template match="/"><xsl:value-of select="document('${data}')/data"/></xsl:template>${XSL_CLOSE}`);
+		assert.doesNotMatch(await applyAsync(stylesheet, '<root/>'), /TOP-SECRET/);
+		assert.strictEqual(requests, 0);
+	});
+
 	it('should not expand external entities in the source document', async function() {
 		let secret = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'node-libxslt-')), 'secret.txt');
 		fs.writeFileSync(secret, 'TOP-SECRET');

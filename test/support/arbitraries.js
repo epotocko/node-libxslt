@@ -12,12 +12,18 @@ const xmlChar = fc.oneof(
 );
 const xmlText = fc.string({ unit: xmlChar, maxLength: 40 });
 const xmlName = fc.stringMatching(/^[a-z][a-z0-9]{0,6}$/);
+// Attribute names, including ones with special meaning to JavaScript objects. Not xmlns, which
+// declares a namespace instead of an attribute.
+const attributeName = fc.oneof(
+	{ weight: 4, arbitrary: xmlName.filter((name) => name !== 'xmlns') },
+	{ weight: 1, arbitrary: fc.constantFrom('__proto__', 'constructor', 'hasOwnProperty', 'toString') }
+);
 
 // An element tree as { name, attributes, children } with string children for text
 const tree = fc.letrec((tie) => ({
 	element: fc.record({
 		name: xmlName,
-		attributes: fc.uniqueArray(fc.tuple(xmlName, xmlText), { selector: ([name]) => name, maxLength: 3 }),
+		attributes: fc.uniqueArray(fc.tuple(attributeName, xmlText), { selector: ([name]) => name, maxLength: 3 }),
 		children: fc.array(fc.oneof({ weight: 2, arbitrary: xmlText }, { weight: 1, arbitrary: tie('element') }), { maxLength: 4 })
 	}, { noNullPrototype: true })
 })).element;
@@ -59,4 +65,4 @@ function textContent(node) {
 	return text + textContent(run);
 }
 
-module.exports = { xmlChar, xmlText, xmlName, tree, render, countElements, elementNames, textContent };
+module.exports = { xmlChar, xmlText, xmlName, attributeName, tree, render, countElements, elementNames, textContent };

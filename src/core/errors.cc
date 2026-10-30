@@ -64,7 +64,7 @@ ErrorCapture::~ErrorCapture() {
     currentCapture = previous_;
 }
 
-void ErrorCapture::OnXmlError(void* self, xmlErrorPtr error) {
+void ErrorCapture::OnXmlError(void* self, XmlErrorParam error) {
     ErrorCapture* capture = static_cast<ErrorCapture*>(self);
     capture->xmlErrors_.push_back(XmlError::From(error));
     capture->text_ += capture->xmlErrors_.back().message;

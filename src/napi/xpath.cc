@@ -21,8 +21,14 @@ Napi::Object ToJsDescriptor(Napi::Env env, const NodeDescriptor& descriptor, uns
     if (fields & kFieldText) object.Set("text", descriptor.text);
     if (fields & kFieldAttributes) {
         if (descriptor.attributes) {
+            // Defined rather than assigned, so that an attribute named like an Object.prototype
+            // member (__proto__ in particular, whose setter ignores strings) is an own property
             Napi::Object attributes = Napi::Object::New(env);
-            for (const auto& attribute : *descriptor.attributes) attributes.Set(attribute.first, attribute.second);
+            const auto ownProperty = static_cast<napi_property_attributes>(napi_writable | napi_enumerable | napi_configurable);
+            for (const auto& attribute : *descriptor.attributes) {
+                attributes.DefineProperty(Napi::PropertyDescriptor::Value(
+                    attribute.first, Napi::String::New(env, attribute.second), ownProperty));
+            }
             object.Set("attributes", attributes);
         } else {
             object.Set("attributes", env.Null());

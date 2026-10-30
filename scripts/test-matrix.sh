@@ -1,14 +1,14 @@
 #!/bin/bash
 # Builds and tests the addon in Docker for every supported Node version and image variant.
 # Usage: scripts/test-matrix.sh [-- <command to run instead of npm test>]
-#   NODE_VERSIONS="22 24 26" TARGETS="full runtime" scripts/test-matrix.sh
+#   NODE_VERSIONS="22 24 26" TARGETS="full runtime alpine" scripts/test-matrix.sh
 #   scripts/test-matrix.sh -- npx mocha test/addon.test.js
 #   PARITY_PRIVATE_DIR=../test-cases scripts/test-matrix.sh   (also runs the private parity corpus)
 set -u
 cd "$(dirname "$0")/.."
 
 NODE_VERSIONS=${NODE_VERSIONS:-"22 24 26"}
-TARGETS=${TARGETS:-"full runtime"}
+TARGETS=${TARGETS:-"full runtime alpine"}
 [ "${1:-}" = "--" ] && shift
 LOG_DIR=${LOG_DIR:-build/test-matrix}
 mkdir -p "$LOG_DIR"

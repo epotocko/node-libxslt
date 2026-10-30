@@ -2,6 +2,7 @@
 #   full:    node:<v> image, which already ships the -dev packages
 #   build:   node:<v>-slim plus the build toolchain and -dev packages
 #   runtime: node:<v>-slim with only the runtime libraries, running the binary from build
+#   alpine:  node:<v>-alpine, with newer libxml2 and libxslt than Debian
 # Usage: docker build -f docker/test.Dockerfile --build-arg NODE_VERSION=24 --target runtime .
 ARG NODE_VERSION=24
 
@@ -34,6 +35,18 @@ RUN apt-get update && \
 	rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY --from=build /src ./
+CMD ["npm", "test"]
+
+# Alpine (musl), whose libxml2 and libxslt are newer than Debian's (2.13 and 1.1.43 on Alpine 3.24)
+FROM node:${NODE_VERSION}-alpine AS alpine
+RUN apk add --no-cache python3 make g++ pkgconf libxml2-dev libxslt-dev
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY binding.gyp ./
+COPY src ./src
+RUN npm run build
+COPY . .
 CMD ["npm", "test"]
 
 # The addon built with AddressSanitizer and UndefinedBehaviorSanitizer, against libxml2 and

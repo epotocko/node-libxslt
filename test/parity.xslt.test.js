@@ -46,7 +46,15 @@ function corpora() {
 	return list;
 }
 
+// The golden files record libxml2 2.9 behavior. Newer libxml2 words many errors differently
+// (and libxslt 1.1.43 resolves document('') differently), so the comparison applies to 2.9 only.
+const COMPARABLE = /^2\.9\./.test(libxslt.versions.libxml2);
+
 describe('XSLT parity with libxslt 0.10.2 on Node 18', function() {
+	if (!COMPARABLE) {
+		it(`runs only with libxml2 2.9 (this is ${libxslt.versions.libxml2})`);
+		return;
+	}
 	for (let corpus of corpora()) {
 		// The golden files are generated, not committed; without them the public corpus is pending.
 		// A private corpus was asked for explicitly, so a missing golden.json fails instead.

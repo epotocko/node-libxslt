@@ -5,6 +5,11 @@
 namespace nlx {
 
 DocPtr ParseXml(const std::string& xml, int options, const ErrorCapture& capture) {
+    // libxml2 2.12 and later report empty input as "Document is empty"; 2.9 reports no error.
+    // The same message on every version, as 0.x gave.
+    if (xml.empty()) {
+        throw Failure("Could not parse XML string", "");
+    }
     if (xml.size() > static_cast<size_t>(INT_MAX)) {
         throw Failure("XML input is too large", "");
     }

@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <libxml/xmlmemory.h>
+#include <libxslt/documents.h>
 #include <libxslt/security.h>
 #include <libxslt/transform.h>
 #include <libxslt/xsltutils.h>
@@ -25,12 +26,26 @@ void InstallSecurityPolicy() {
     xsltSetDefaultSecurityPrefs(prefs);
 }
 
+// libxslt's own loader, which LoadDocument delegates to
+xsltDocLoaderFunc defaultLoader = nullptr;
+
+// Loads xsl:include and xsl:import stylesheets and document() resources. libxslt parses these with
+// its own options (XSLT_PARSE_OPTIONS), which substitute entities and load DTDs; the security
+// policy checks only the resource itself, not what the parser then loads from inside it. Parse
+// them like every other document instead: no external entities, DTDs, XInclude or network.
+xmlDocPtr LoadDocument(const xmlChar* uri, xmlDictPtr dict, int options, void* context, xsltLoadType type) {
+    options &= ~(XML_PARSE_NOENT | XML_PARSE_DTDLOAD | XML_PARSE_DTDATTR | XML_PARSE_DTDVALID | XML_PARSE_XINCLUDE);
+    return defaultLoader(uri, dict, options | kParseOptions, context, type);
+}
+
 }  // namespace
 
 void InitXslt() {
     InstallErrorHandlers();
     exsltRegisterAll();
     InstallSecurityPolicy();
+    defaultLoader = xsltDocDefaultLoader;
+    xsltSetLoaderFunc(LoadDocument);
 }
 
 StylesheetPtr CompileStylesheet(const std::string& source) {

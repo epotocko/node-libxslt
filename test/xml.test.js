@@ -49,6 +49,12 @@ describe('xpathSelect', function() {
 			assert.deepStrictEqual(select('/', { first: true, fields: ['type', 'name', 'text'] }),
 				{ type: 'document', name: null, text: 'textone two three<raw> & ' });
 		});
+		it('should return attributes named like Object.prototype members as own properties', function() {
+			let { attributes } = xpathSelectSync('<r __proto__="x" constructor="y" toString="z"/>', '/r', { first: true, fields: ['attributes'] });
+			assert.deepStrictEqual(Object.keys(attributes), ['__proto__', 'constructor', 'toString']);
+			assert.strictEqual(Object.getOwnPropertyDescriptor(attributes, '__proto__').value, 'x');
+			assert.strictEqual(Object.getPrototypeOf(attributes), Object.prototype);
+		});
 		it('should key attributes by local name, the later one winning, without namespace declarations', function() {
 			assert.deepStrictEqual(select('/a', { first: true }).attributes, { code: '200', lang: 'fr' });
 		});

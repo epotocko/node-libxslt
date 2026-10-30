@@ -9,12 +9,20 @@
 #include <vector>
 
 #include <libxml/xmlerror.h>
+#include <libxml/xmlversion.h>
 
 #ifndef LIBXML_THREAD_ENABLED
 #error "libxml2 must be built with thread support"
 #endif
 
 namespace nlx {
+
+// libxml2 2.12 made the error parameter of structured error callbacks const
+#if LIBXML_VERSION >= 21200
+using XmlErrorParam = const xmlError*;
+#else
+using XmlErrorParam = xmlError*;
+#endif
 
 // Copy of a libxml2 error. libxml2 reuses its error structs, so the strings are owned here.
 struct XmlError {
@@ -66,7 +74,7 @@ class ErrorCapture {
     const std::string& lastXsltMessage() const { return lastXsltMessage_; }
 
   private:
-    static void OnXmlError(void* self, xmlErrorPtr error);
+    static void OnXmlError(void* self, XmlErrorParam error);
     friend void OnXsltError(void* context, const char* format, ...);
 
     ErrorCapture* previous_;

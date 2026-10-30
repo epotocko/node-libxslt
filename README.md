@@ -14,13 +14,19 @@ It is a rewrite of [albanm/node-libxslt](https://github.com/albanm/node-libxslt)
 ## Requirements
 
 - Node.js 22 or later
-- Linux, with libxml2 2.9.14 or later and libxslt 1.1.35 or later. The Debian images `node:22`, `node:24` and `node:26` meet this. macOS is untested; Windows isn't supported.
+- Linux, with libxml2 2.9.14 or later and libxslt 1.1.35 or later. Tested on the Debian images `node:22`, `node:24` and `node:26` (libxml2 2.9.14, libxslt 1.1.35) and on `node:<version>-alpine` (Alpine 3.24: libxml2 2.13, libxslt 1.1.43). macOS is untested; Windows isn't supported.
 - To build: `pkg-config`, a C++17 compiler, Python 3 and the development headers
 
 | Image | Build | Run |
 |---|---|---|
 | `node:<version>` (Debian) | everything is preinstalled | everything is preinstalled |
 | `node:<version>-slim` (Debian) | `apt-get install python3 make g++ pkg-config libxml2-dev libxslt1-dev` | `apt-get install libxml2 libxslt1.1` |
+| `node:<version>-alpine` | `apk add python3 make g++ pkgconf libxml2-dev libxslt-dev` | `apk add libxml2 libxslt` |
+
+With newer libxml2 and libxslt than Debian's, some results differ, because the libraries behave differently:
+
+- Many libxml2 error messages are worded differently, and libxml2 2.13 often reports a different error for the same malformed input.
+- With libxslt 1.1.43, `document('')` (the stylesheet itself) selects nothing in a stylesheet compiled from a string.
 
 ## Installation
 
@@ -148,8 +154,8 @@ Stylesheets and documents often come from outside the application, so the defaul
 | Reading over the network | No |
 | Writing files or creating directories (`exsl:document`) | No |
 | Writing over the network | No |
-| Expanding external entities in documents (XSLT and XPath) | No |
-| Loading external DTDs | No |
+| Expanding external entities, in any document or stylesheet, including files read through `xsl:include`, `xsl:import` and `document()` | No |
+| Loading external DTDs, likewise | No |
 
 A refused action fails the parse or the transform, and the error's `details` says what was refused. The policy can't be changed yet.
 
@@ -174,6 +180,7 @@ This release replaces the libxmljs-based implementation of albanm/node-libxslt 0
 - **`<xsl:message terminate="yes">`** now fails the transform. 0.x returned the output produced up to that point.
 - **Whitespace in included stylesheets** marked `xml:space="preserve"` is now kept, as the XSLT specification requires.
 - **Network access, file writes and external entities** are blocked (see [Security](#security)).
+- **Files read through `xsl:include`, `xsl:import` and `document()`** are parsed like every other document: entities aren't substituted and DTDs aren't loaded. 0.x substituted internal and external entities in those files and loaded their DTDs.
 - **Errors** have a new `details` property.
 - **The callback forms** now also parse the XML off the main thread, so errors from invalid XML reach the callback asynchronously. 0.x called the callback synchronously for those errors.
 
