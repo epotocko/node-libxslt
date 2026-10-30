@@ -1,0 +1,1 @@
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:include href="test/resources/xslincludefile.xsl"/><xsl:template match="/"><xsl:apply-templates select="//TITLE"/></xsl:template></xsl:stylesheet>

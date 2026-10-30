@@ -1,0 +1,1 @@
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:output method="xml"/><xsl:template match="/"><out status="{//Status/@code}"><xsl:value-of select="//Status"/>|<xsl:value-of select="/doc/entities"/></out></xsl:template></xsl:stylesheet>

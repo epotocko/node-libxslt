@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:ord="urn:example:orders">
+  <soapenv:Header>
+    <ord:Auth>
+      <ord:User>buyer</ord:User>
+    </ord:Auth>
+  </soapenv:Header>
+  <soapenv:Body>
+    <ord:Order id="42">
+      <ord:Line sku="A1" qty="2">Widget &amp; Gadget</ord:Line>
+    </ord:Order>
+  </soapenv:Body>
+</soapenv:Envelope>

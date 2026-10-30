@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE doc [
+  <!ENTITY company "Example &amp; Co">
+]>
+<doc>
+  <entities>&lt;tag&gt; &amp; &#169; &#x1D11E; &company;</entities>
+  <cdata><![CDATA[<raw> & ]] stuff]]></cdata>
+  <mixed>before <b>bold</b> after<!-- note -->end</mixed>
+  <empty></empty>
+  <selfclosed/>
+  <spaces>   padded   </spaces>
+  <multiline>line one
+    line two</multiline>
+</doc>

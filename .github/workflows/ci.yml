@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [master, v1-napi]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }} (${{ matrix.target }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24', '26']
+        target: [full, runtime, alpine]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test in Docker
+        env:
+          NODE_VERSIONS: ${{ matrix.node }}
+          TARGETS: ${{ matrix.target }}
+        run: bash scripts/test-matrix.sh
+      - name: Show log
+        if: failure()
+        run: cat build/test-matrix/*.log
+
+  parity:
+    name: Parity with libxslt 0.10.2
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The golden files aren't committed; record them from libxslt 0.10.2 on Node 18 first
+      - name: Record libxslt 0.10.2 results
+        run: bash parity/capture.sh && test -s parity/golden/xslt.json
+      - name: Compare
+        env:
+          NODE_VERSIONS: '24'
+          TARGETS: full
+        run: bash scripts/test-matrix.sh -- npx mocha --no-config test/parity.xslt.test.js
+      - name: Show log
+        if: failure()
+        run: cat build/test-matrix/*.log
+
+  sanitize:
+    name: Sanitizers and memory growth
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: AddressSanitizer, ThreadSanitizer, LeakSanitizer and memory growth
+        run: bash scripts/sanitize.sh

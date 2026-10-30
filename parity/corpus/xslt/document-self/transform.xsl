@@ -1,0 +1,1 @@
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:my="urn:my" exclude-result-prefixes="my"><my:data><v>from stylesheet</v></my:data><xsl:template match="/"><out><xsl:value-of select="document('')//my:data/v"/></out></xsl:template></xsl:stylesheet>
