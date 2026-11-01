@@ -9,8 +9,6 @@ Node.js bindings for [libxslt](https://gitlab.gnome.org/GNOME/libxslt), the XSLT
 
 It is a rewrite of [albanm/node-libxslt](https://github.com/albanm/node-libxslt) that keeps its XSLT API. See [Changes from 0.x](#changes-from-0x).
 
-> Status: 1.0 pre-release.
-
 ## Requirements
 
 - Node.js 22 or later
@@ -30,10 +28,8 @@ With newer libxml2 and libxslt than Debian's, some results differ, because the l
 
 ## Installation
 
-The package isn't published to the npm registry. Install it from GitHub:
-
 ```sh
-npm install epotocko/node-libxslt
+npm install @epotocko/node-libxslt
 ```
 
 The native addon builds during installation.

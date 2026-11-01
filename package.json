@@ -1,13 +1,14 @@
 {
   "name": "@epotocko/node-libxslt",
-  "version": "1.0.0-alpha.0",
+  "version": "1.0.0",
   "description": "Node.js bindings for libxslt, with a minimal libxml2 XPath API, built on node-addon-api",
   "main": "index.js",
   "files": [
     "index.js",
     "xpath.js",
     "binding.gyp",
-    "src/"
+    "src/",
+    "LICENSE"
   ],
   "gypfile": true,
   "engines": {
@@ -30,10 +31,10 @@
     "libxml2",
     "bindings"
   ],
-  "author": "Alban Mouton <alban.mouton@gmail.com>",
+  "author": "Edward Potocko",
   "contributors": [
     "Rui Azevedo <ruihfazevedo@gmail.com> (http://www.r-site.net/)",
-    "Edward Potocko"
+    "Alban Mouton <alban.mouton@gmail.com>"
   ],
   "homepage": "https://github.com/epotocko/node-libxslt",
   "bugs": {
@@ -44,6 +45,9 @@
     "url": "git+https://github.com/epotocko/node-libxslt.git"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "node-addon-api": "^8.9.2",
     "node-gyp-build": "^4.8.4"
